@@ -1,0 +1,12 @@
+torch>=2.2
+transformers>=4.44
+accelerate>=0.33
+sentence-transformers>=3.0
+rank-bm25>=0.2
+chromadb>=0.5
+datasets>=2.20
+numpy>=1.26
+pandas>=2.0
+matplotlib>=3.8
+langgraph>=0.2
+pydantic>=2.0
