@@ -8,6 +8,16 @@
 
 ---
 
+## Results (latest run)
+
+Searched **55 agentic-RAG configurations** on HotpotQA (multi-hop), fully local on Apple Silicon. Winner **`combo_best`** — **F1 0.378 (+28.7% over baseline)**, EM 0.30, retrieval recall 0.79, groundedness 0.83, **0.12 s/question** (`retrieval_k=4, hybrid_alpha=0.5, prompt=cot, reflect=True`).
+
+**Headline finding: the lever is the prompt, not retrieval tuning.** Chain-of-thought prompting drove the entire gain (~+0.08 F1); sweeping `retrieval_k`/`hybrid_alpha` moved F1 by <0.02, and a `strict` prompt actively *hurt*. Retrieval recall and answer F1 were **decoupled** (k=8 reached recall 0.91 yet didn't top the F1 board) — i.e. the bottleneck is **answer extraction, not retrieval coverage**, a conclusion a single aggregate score would have hidden.
+
+→ Full results + Pareto frontier: [`results/FINDINGS.md`](results/FINDINGS.md) · Evaluation methodology & SOTA techniques: [`AGENT_EVAL_TECHNIQUES.md`](AGENT_EVAL_TECHNIQUES.md)
+
+---
+
 ## Why this exists
 
 Most RAG demos show *a* pipeline. ARES instead treats the agent's configuration as something to **search and measure** — with an evaluation harness rigorous enough to trust the conclusions:
