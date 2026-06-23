@@ -3,11 +3,16 @@ titles, lexical groundedness, and an adversarial-robustness helper."""
 from __future__ import annotations
 import re, string, collections
 
+# Built once instead of per-call: ``normalize`` runs on every prediction/gold
+# pair across thousands of evaluations, so the set and regex are hoisted here.
+_PUNCT = set(string.punctuation)
+_ARTICLES_RE = re.compile(r"\b(a|an|the)\b")
+
 
 def normalize(s: str) -> str:
     s = (s or "").lower()
-    s = "".join(ch for ch in s if ch not in set(string.punctuation))
-    s = re.sub(r"\b(a|an|the)\b", " ", s)
+    s = "".join(ch for ch in s if ch not in _PUNCT)
+    s = _ARTICLES_RE.sub(" ", s)
     return " ".join(s.split())
 
 
