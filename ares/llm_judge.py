@@ -162,6 +162,20 @@ def _rationale(text: str, fallback: str = "") -> str:
     return " ".join(text.split()) if text else fallback
 
 
+def _after_label(text: str, label: str) -> str:
+    """Return the portion of ``text`` following the first ``label:`` marker.
+
+    The judge prompts ask for labeled lines (``Rationale: ...``, ``Winner: ...``);
+    this isolates the value after a label so a single un-labeled fallback (the
+    whole ``text``) is used when the model omitted the marker. Centralizing this
+    keeps the four judges consistent and avoids repeating the split logic.
+    """
+    marker = f"{label}:"
+    if marker in text:
+        return text.split(marker, 1)[1]
+    return text
+
+
 # ---------------------------------------------------------------------------
 # Judges
 # ---------------------------------------------------------------------------
@@ -208,9 +222,7 @@ def faithfulness(answer: str, context: str) -> dict:
         "unsupported": 0.0,
         "contradicted": 0.0,
     }
-    rationale = text
-    if "Rationale:" in text:
-        rationale = text.split("Rationale:", 1)[1]
+    rationale = _after_label(text, "Rationale")
     return {
         "score": score_map[verdict],
         "verdict": verdict,
@@ -241,9 +253,7 @@ def answer_relevancy(question: str, answer: str) -> dict:
                        temperature=0.0)
     text = out.get("text", "")
     score = _parse_score(text, lo=0.0, hi=1.0, default=0.0, label="score")
-    rationale = text
-    if "Rationale:" in text:
-        rationale = text.split("Rationale:", 1)[1]
+    rationale = _after_label(text, "Rationale")
     return {"score": score, "rationale": _rationale(rationale, fallback=text)}
 
 
@@ -277,21 +287,19 @@ def g_eval(question: str, answer: str, context: str,
     text = out.get("text", "")
     score = _parse_score(text, lo=1.0, hi=5.0, default=3.0, label="score")
 
-    reasoning = text
-    if "Reasoning:" in text:
-        reasoning = text.split("Reasoning:", 1)[1]
+    reasoning = _after_label(text, "Reasoning")
     # Drop the trailing "Score:" tail from the reasoning if present.
     reasoning = re.split(r"Score\s*[:=]", reasoning, maxsplit=1)[0]
     return {"score": score, "reasoning": _rationale(reasoning, fallback=text)}
 
 
 def _pairwise_once(question: str, first: str, second: str,
-                   context: Optional[str]) -> str:
-    """Run a single A-vs-B judgment and return the raw winner label.
+                   context: Optional[str]) -> tuple:
+    """Run a single A-vs-B judgment and return ``(winner_label, rationale)``.
 
     ``first``/``second`` are the texts shown in slot A and slot B respectively;
     the caller is responsible for swapping them to average out position bias.
-    Returns one of ``"A"``, ``"B"``, ``"tie"``.
+    The winner label is one of ``"A"``, ``"B"``, ``"tie"``.
     """
     ctx_block = ""
     if context:
@@ -311,16 +319,14 @@ def _pairwise_once(question: str, first: str, second: str,
     out = llm.generate(prompt, system=JUDGE_SYSTEM, max_new_tokens=160,
                        temperature=0.0)
     text = out.get("text", "")
-    winner_line = text
-    if "Winner:" in text:
-        winner_line = text.split("Winner:", 1)[1]
-    # Restrict the search to the verdict line so a stray "A"/"B" inside the
-    # rationale cannot override the stated winner.
-    winner_line = winner_line.split("Rationale:", 1)[0]
+    # Restrict the verdict search to the line after "Winner:" (before any
+    # "Rationale:") so a stray "A"/"B" inside the rationale cannot override the
+    # stated winner.
+    winner_line = _after_label(text, "Winner").split("Rationale:", 1)[0]
     label = _parse_label(winner_line, ("tie", "A", "B"), default="tie")
     rationale = ""
     if "Rationale:" in text:
-        rationale = _rationale(text.split("Rationale:", 1)[1])
+        rationale = _rationale(_after_label(text, "Rationale"))
     return label, rationale
 
 
